@@ -186,8 +186,8 @@ Optional shortcuts for power users. Natural language works fine without them.
 | `plan` | Planning interview | `plan the API` |
 | `ralplan` | Iterative planning consensus | `ralplan this feature` |
 | `deep-interview` | Socratic requirements clarification | `deep-interview "vague idea"` |
-| `swarm` | Legacy keyword (routes to Team) | `swarm 5 agents: fix lint errors` |
-| `ultrapilot` | Legacy keyword (routes to Team) | `ultrapilot: build a fullstack app` |
+| `swarm` | **Deprecated** — use `team` instead | `swarm 5 agents: fix lint errors` |
+| `ultrapilot` | **Deprecated** — use `team` instead | `ultrapilot: build a fullstack app` |
 
 **Notes:**
 - **ralph includes ultrawork**: when you activate ralph mode, it automatically includes ultrawork's parallel execution.

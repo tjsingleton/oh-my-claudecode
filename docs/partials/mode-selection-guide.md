@@ -6,11 +6,13 @@
 |----------------|----------|---------|
 | Clarify vague requirements first | `deep-interview` | "deep interview", "ouroboros", "don't assume" |
 | Full autonomous build from idea | `autopilot` | "autopilot", "build me", "I want a" |
-| Parallel autonomous (3-5x faster) | `ultrapilot` | "ultrapilot", "parallel build" |
+| Parallel autonomous (3-5x faster) | `team` (replaces `ultrapilot`) | `/team N:executor "task"` |
 | Persistence until verified done | `ralph` | "ralph", "don't stop" |
 | Parallel execution, manual oversight | `ultrawork` | "ulw", "ultrawork" |
 | Cost-efficient execution | `` (modifier) | "eco", "budget" |
-| Many similar independent tasks | `swarm` | "swarm N agents" |
+| Many similar independent tasks | `team` (replaces `swarm`) | `/team N:executor "task"` |
+
+> **Note:** `ultrapilot` and `swarm` are **deprecated** — they now route to `team` mode.
 
 ## If You're Confused or Uncertain
 
@@ -21,20 +23,24 @@
 ## Detailed Decision Flowchart
 
 ```
+Uncertain about requirements or have a vague idea?
+├── YES: Use deep-interview to clarify before execution
+└── NO: Continue below
+
 Want autonomous execution?
 ├── YES: Is task parallelizable into 3+ independent components?
-│   ├── YES: ultrapilot (parallel autopilot with file ownership)
+│   ├── YES: team N:deep-executor (parallel autonomous with file ownership)
 │   └── NO: autopilot (sequential with ralph phases)
 └── NO: Want parallel execution with manual oversight?
     ├── YES: Do you want cost optimization?
-    │   ├── YES:  + ultrawork
+    │   ├── YES: eco + ultrawork
     │   └── NO: ultrawork alone
     └── NO: Want persistence until verified done?
         ├── YES: ralph (persistence + ultrawork + verification)
         └── NO: Standard orchestration (delegate to agents directly)
 
 Have many similar independent tasks (e.g., "fix 47 errors")?
-└── YES: swarm (N agents claiming from task pool)
+└── YES: team N:executor (N agents claiming from task pool)
 ```
 
 ## Examples
@@ -42,8 +48,8 @@ Have many similar independent tasks (e.g., "fix 47 errors")?
 | User Request | Best Mode | Why |
 |--------------|-----------|-----|
 | "Build me a REST API" | autopilot | Single coherent deliverable |
-| "Build frontend, backend, and database" | ultrapilot | Clear component boundaries |
-| "Fix all 47 TypeScript errors" | swarm | Many independent similar tasks |
+| "Build frontend, backend, and database" | team 3:deep-executor | Clear component boundaries |
+| "Fix all 47 TypeScript errors" | team 5:executor | Many independent similar tasks |
 | "Refactor auth module thoroughly" | ralph | Need persistence + verification |
 | "Quick parallel execution" | ultrawork | Manual oversight preferred |
 | "Save tokens while fixing errors" |  + ultrawork | Cost-conscious parallel |
@@ -54,8 +60,9 @@ Have many similar independent tasks (e.g., "fix 47 errors")?
 ### Standalone Modes
 These run independently:
 - **autopilot**: Autonomous end-to-end execution
-- **ultrapilot**: Parallel autonomous with file ownership
-- **swarm**: N-agent coordination with task pool
+- **team**: Canonical orchestration with coordinated agents (replaces `ultrapilot` and `swarm`)
+
+> **Deprecated:** `ultrapilot` and `swarm` now route to `team` mode.
 
 ### Wrapper Modes
 These wrap other modes:
@@ -81,5 +88,5 @@ These modify how other modes work:
 
 | Combination | Why Invalid |
 |-------------|-------------|
-| `autopilot ultrapilot` | Both are standalone - use one |
+| `autopilot team` | Both are standalone - use one |
 | `` alone | Needs an execution mode to modify |

@@ -495,8 +495,8 @@ analyze why the tests are failing
 # Autonomous execution
 autopilot: build a todo app with React
 
-# Parallel autopilot
-ultrapilot: build a fullstack todo app
+# Parallel autonomous execution (use team instead of deprecated ultrapilot)
+team 3:deep-executor "build a fullstack todo app"
 
 # Persistence mode
 ralph: refactor the authentication module
