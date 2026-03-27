@@ -3,7 +3,7 @@
  * Verifies that idle notifications are rate-limited per session.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import {
@@ -47,11 +47,23 @@ const SESSION_COOLDOWN_PATH = join(
   TEST_SESSION_ID,
   'idle-notif-cooldown.json'
 );
-const CONFIG_PATH = '/home/testuser/.omc/config.json';
+const CONFIG_PATH = '/home/testuser/.config/omc/config.json';
+const LEGACY_CONFIG_PATH = '/home/testuser/.omc/config.json';
 
 describe('getIdleNotificationCooldownSeconds', () => {
+  const originalHome = process.env.HOME;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.HOME = '/home/testuser';
+  });
+
+  afterEach(() => {
+    if (originalHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = originalHome;
+    }
   });
 
   it('returns 60 when config file does not exist', () => {
@@ -68,6 +80,19 @@ describe('getIdleNotificationCooldownSeconds', () => {
 
     expect(getIdleNotificationCooldownSeconds()).toBe(120);
     expect(readFileSync).toHaveBeenCalledWith(CONFIG_PATH, 'utf-8');
+  });
+
+  it('falls back to legacy ~/.omc config when XDG config is absent', () => {
+    (existsSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => p === LEGACY_CONFIG_PATH);
+    (readFileSync as ReturnType<typeof vi.fn>).mockImplementation((p: string) => {
+      if (p === LEGACY_CONFIG_PATH) {
+        return JSON.stringify({ notificationCooldown: { sessionIdleSeconds: 45 } });
+      }
+      throw new Error('not found');
+    });
+
+    expect(getIdleNotificationCooldownSeconds()).toBe(45);
+    expect(readFileSync).toHaveBeenCalledWith(LEGACY_CONFIG_PATH, 'utf-8');
   });
 
   it('returns 0 when cooldown is disabled in config', () => {

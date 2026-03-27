@@ -15,9 +15,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, chmodSync, statSync, appendFileSync, renameSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { homedir } from 'os';
 import { spawn } from 'child_process';
 import { resolveDaemonModulePath } from '../../utils/daemon-module-path.js';
+import { getGlobalOmcStatePath } from '../../utils/paths.js';
 import {
   checkRateLimitStatus,
   formatRateLimitStatus,
@@ -45,9 +45,9 @@ const DEFAULT_CONFIG: Required<DaemonConfig> = {
   pollIntervalMs: 60 * 1000, // 1 minute
   paneLinesToCapture: 15,
   verbose: false,
-  stateFilePath: join(homedir(), '.omc', 'state', 'rate-limit-daemon.json'),
-  pidFilePath: join(homedir(), '.omc', 'state', 'rate-limit-daemon.pid'),
-  logFilePath: join(homedir(), '.omc', 'state', 'rate-limit-daemon.log'),
+  stateFilePath: getGlobalOmcStatePath('rate-limit-daemon.json'),
+  pidFilePath: getGlobalOmcStatePath('rate-limit-daemon.pid'),
+  logFilePath: getGlobalOmcStatePath('rate-limit-daemon.log'),
 };
 
 /** Maximum log file size before rotation (1MB) */

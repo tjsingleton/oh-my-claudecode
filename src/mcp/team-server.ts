@@ -16,7 +16,6 @@ import { fileURLToPath } from 'url';
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 import { writeFileSync, readFileSync, mkdirSync, existsSync } from 'fs';
 import { readFile } from 'fs/promises';
-import { homedir } from 'os';
 import { killWorkerPanes, killTeamSession } from '../team/tmux-session.js';
 import { validateTeamName } from '../team/team-name.js';
 import { NudgeTracker } from '../team/idle-nudge.js';
@@ -27,9 +26,10 @@ import {
 } from './team-job-convergence.js';
 import { isProcessAlive } from '../platform/index.js';
 import type { OmcTeamJob } from './team-job-convergence.js';
+import { getGlobalOmcStatePath } from '../utils/paths.js';
 
 const omcTeamJobs = new Map<string, OmcTeamJob>();
-const OMC_JOBS_DIR = process.env.OMC_JOBS_DIR || join(homedir(), '.omc', 'team-jobs');
+const OMC_JOBS_DIR = process.env.OMC_JOBS_DIR || getGlobalOmcStatePath('team-jobs');
 const DEPRECATION_CODE = 'deprecated_cli_only' as const;
 
 type DeprecatedTeamToolName =

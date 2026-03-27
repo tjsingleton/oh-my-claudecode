@@ -5,7 +5,7 @@
  * Uses JSONL append format for atomic writes, following the pattern from
  * session-replay.ts with secure file permissions from daemon.ts.
  *
- * Registry location: ~/.omc/state/reply-session-registry.jsonl (global, not worktree-local)
+ * Registry location: XDG-aware global OMC state (legacy ~/.omc/state fallback for reads)
  * File permissions: 0600 (owner read/write only)
  */
 
@@ -22,9 +22,9 @@ import {
   constants,
 } from 'fs';
 import { join, dirname } from 'path';
-import { homedir } from 'os';
 import { randomUUID } from 'crypto';
 import { isProcessAlive } from '../platform/index.js';
+import { getGlobalOmcStateCandidates, getGlobalOmcStateRoot } from '../utils/paths.js';
 
 // ============================================================================
 // Constants
@@ -44,16 +44,24 @@ const LOCK_MAX_WAIT_MS = 10000;
 
 /**
  * Return the registry state directory.
- * OMC_TEST_REGISTRY_DIR overrides the default (~/.omc/state) so that tests
+ * OMC_TEST_REGISTRY_DIR overrides the default global state dir so that tests
  * can redirect all I/O to a temporary directory without touching global state.
  */
 function getRegistryStateDir(): string {
-  return process.env['OMC_TEST_REGISTRY_DIR'] ?? join(homedir(), '.omc', 'state');
+  return process.env['OMC_TEST_REGISTRY_DIR'] ?? getGlobalOmcStateRoot();
 }
 
 /** Global registry JSONL path */
 function getRegistryPath(): string {
   return join(getRegistryStateDir(), 'reply-session-registry.jsonl');
+}
+
+function getRegistryReadPaths(): string[] {
+  if (process.env['OMC_TEST_REGISTRY_DIR']) {
+    return [getRegistryPath()];
+  }
+
+  return getGlobalOmcStateCandidates('reply-session-registry.jsonl');
 }
 
 /** Lock file path for cross-process synchronization */
@@ -337,26 +345,30 @@ export function loadAllMappings(): SessionMapping[] {
  * Caller must already hold lock (or accept race risk).
  */
 function readAllMappingsUnsafe(): SessionMapping[] {
-  if (!existsSync(getRegistryPath())) {
-    return [];
+  for (const registryPath of getRegistryReadPaths()) {
+    if (!existsSync(registryPath)) {
+      continue;
+    }
+
+    try {
+      const content = readFileSync(registryPath, 'utf-8');
+      return content
+        .split('\n')
+        .filter(line => line.trim())
+        .map(line => {
+          try {
+            return JSON.parse(line) as SessionMapping;
+          } catch {
+            return null;
+          }
+        })
+        .filter((m): m is SessionMapping => m !== null);
+    } catch {
+      continue;
+    }
   }
 
-  try {
-    const content = readFileSync(getRegistryPath(), 'utf-8');
-    return content
-      .split('\n')
-      .filter(line => line.trim())
-      .map(line => {
-        try {
-          return JSON.parse(line) as SessionMapping;
-        } catch {
-          return null;
-        }
-      })
-      .filter((m): m is SessionMapping => m !== null);
-  } catch {
-    return [];
-  }
+  return [];
 }
 
 /**

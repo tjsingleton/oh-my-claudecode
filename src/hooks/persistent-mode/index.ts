@@ -13,8 +13,7 @@
 import { existsSync, readFileSync, unlinkSync, statSync, openSync, readSync, closeSync, mkdirSync } from 'fs';
 import { atomicWriteJsonSync } from '../../lib/atomic-write.js';
 import { join } from 'path';
-import { homedir } from 'os';
-import { getClaudeConfigDir } from '../../utils/paths.js';
+import { getClaudeConfigDir, getGlobalOmcConfigCandidates } from '../../utils/paths.js';
 import {
   readUltraworkState,
   writeUltraworkState,
@@ -241,19 +240,21 @@ export function resetTodoContinuationAttempts(sessionId: string): void {
 }
 
 /**
- * Read the session-idle notification cooldown in seconds from ~/.omc/config.json.
+ * Read the session-idle notification cooldown in seconds from global OMC config.
  * Default: 60 seconds. 0 = disabled (no cooldown).
  */
 export function getIdleNotificationCooldownSeconds(): number {
-  const configPath = join(homedir(), '.omc', 'config.json');
-  try {
-    if (!existsSync(configPath)) return 60;
-    const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
-    const cooldown = (config?.notificationCooldown as Record<string, unknown> | undefined);
-    const val = cooldown?.sessionIdleSeconds;
-    if (typeof val === 'number' && Number.isFinite(val)) return Math.max(0, val);
-  } catch {
-    // ignore parse errors
+  for (const configPath of getGlobalOmcConfigCandidates('config.json')) {
+    try {
+      if (!existsSync(configPath)) continue;
+      const config = JSON.parse(readFileSync(configPath, 'utf-8')) as Record<string, unknown>;
+      const cooldown = (config?.notificationCooldown as Record<string, unknown> | undefined);
+      const val = cooldown?.sessionIdleSeconds;
+      if (typeof val === 'number' && Number.isFinite(val)) return Math.max(0, val);
+      return 60;
+    } catch {
+      return 60;
+    }
   }
   return 60;
 }
