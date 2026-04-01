@@ -598,6 +598,29 @@ export const stateClearTool: ToolDefinition<{
       }
 
       // No session_id: clear from all locations (legacy + all sessions)
+      // Write cancel signals FIRST (before deleting files) so the stop hook's
+      // isSessionCancelInProgress check sees the signal during the deletion window.
+      // Mirrors the session_id path at line ~403. (patch: fix missing cancel signal)
+      {
+        const now = Date.now();
+        const cancelSignalPayload = {
+          active: true,
+          requested_at: new Date(now).toISOString(),
+          expires_at: new Date(now + CANCEL_SIGNAL_TTL_MS).toISOString(),
+          mode,
+          source: 'state_clear' as const,
+        };
+        // Write to legacy path (checked by stop hook fallback)
+        const legacySignalPath = join(root, 'state', 'cancel-signal-state.json');
+        try { atomicWriteJsonSync(legacySignalPath, cancelSignalPayload); } catch { /* best-effort */ }
+        // Write to each session path (checked by stop hook primary check)
+        for (const sid of listSessionIds(root)) {
+          try {
+            const sessionSignalPath = resolveSessionStatePath('cancel-signal', sid, root);
+            atomicWriteJsonSync(sessionSignalPath, cancelSignalPayload);
+          } catch { /* best-effort */ }
+        }
+      }
       let clearedCount = 0;
       const errors: string[] = [];
       if (mode === 'team') {
