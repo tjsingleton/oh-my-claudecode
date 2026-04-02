@@ -289,19 +289,27 @@ describe('state-tools', () => {
         workingDirectory: TEST_DIR,
       });
 
+      // Verify skill-active appears in the active list before clearing
+      const listBefore = await stateListActiveTool.handler({
+        session_id: sessionId,
+        workingDirectory: TEST_DIR,
+      });
+      expect(listBefore.content[0].text).toContain('skill-active');
+
       const clearResult = await stateClearTool.handler({
         mode: 'skill-active',
         session_id: sessionId,
         workingDirectory: TEST_DIR,
       });
 
-      expect(clearResult.content[0].text).toMatch(/cleared|Successfully/i);
+      expect(clearResult.content[0].text).toContain('cleared');
 
       const readResult = await stateReadTool.handler({
         mode: 'skill-active',
         session_id: sessionId,
         workingDirectory: TEST_DIR,
       });
+      // stateReadTool returning "No state found" is authoritative proof the file is gone
       expect(readResult.content[0].text).toContain('No state found');
     });
 
