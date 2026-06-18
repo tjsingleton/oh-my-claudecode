@@ -85,10 +85,10 @@ import {
 import { formatOmcCliInvocation } from '../utils/omc-cli-rendering.js';
 import { createSwallowedErrorLogger } from '../lib/swallowed-error.js';
 import type { CanonicalTeamRole, PluginConfig, RoleAssignment, TeamRoleAssignmentSpec } from '../shared/types.js';
-import { CANONICAL_TEAM_ROLES } from '../shared/types.js';
+import { CANONICAL_TEAM_ROLES, CURSOR_EXECUTOR_TEAM_ROLES } from '../shared/types.js';
 import { loadConfig } from '../config/loader.js';
 import { buildResolvedRoutingSnapshot, getRoleRoutingSpec } from './stage-router.js';
-import { routeTaskToRole } from './role-router.js';
+import { inferLaneIntent, routeTaskToRole, type LaneIntent } from './role-router.js';
 import { normalizeDelegationRole } from '../features/delegation-routing/types.js';
 import {
   cliWorkerOutputFilePath,
@@ -119,6 +119,24 @@ import {
 // ---------------------------------------------------------------------------
 
 const orchestratorByTeam = new Map<string, OrchestratorHandle>();
+const CURSOR_UNSUPPORTED_REVIEW_INTENT_RE =
+  /\b(?:review|audit|critic|critique|security|vulnerabilit|cve|owasp|xss|csrf|sqli|verdict|approval|approve|final\s+decision)\b/i;
+const CURSOR_EXECUTOR_CONTEXT_RE =
+  /\b(?:implement|implementation|apply|edit|patch|fix|build|ci|lint|compile|tsc|type.?check|test|tests|debug|troubleshoot|investigate|root.?cause|diagnos|refactor|clean\s*up|simplif)\b/i;
+const CURSOR_EXECUTOR_CONTEXT_INTENTS = new Set<LaneIntent>([
+  'implementation',
+  'build-fix',
+  'debug',
+  'cleanup',
+  'verification',
+]);
+
+function isCursorExecutorContextTask(task: { subject: string; description: string }): boolean {
+  const text = `${task.subject} ${task.description}`.trim();
+  if (!text || CURSOR_UNSUPPORTED_REVIEW_INTENT_RE.test(text)) return false;
+  if (!CURSOR_EXECUTOR_CONTEXT_RE.test(text)) return false;
+  return CURSOR_EXECUTOR_CONTEXT_INTENTS.has(inferLaneIntent(text));
+}
 const cadenceByTeam = new Map<string, { pollers: FallbackPollerHandle[]; contexts: WorkerCadenceContext[] }>();
 
 function registerTeamOrchestrator(teamName: string, handle: OrchestratorHandle): void {
@@ -269,7 +287,7 @@ const MONITOR_SIGNAL_STALE_MS = 30_000;
  * Returns the primary assignment by default; callers swap to the Claude
  * fallback if the primary provider's CLI binary is missing at spawn time.
  */
-function resolveTaskAssignment(
+export function resolveTaskAssignment(
   task: { subject: string; description: string; role?: string },
   resolvedRouting: Record<CanonicalTeamRole, { primary: RoleAssignment; fallback: RoleAssignment }>,
   roleRoutingConfig: Partial<Record<CanonicalTeamRole, TeamRoleAssignmentSpec>> | undefined,
@@ -297,7 +315,20 @@ function resolveTaskAssignment(
     roleRoutingConfig as Record<string, TeamRoleAssignmentSpec | undefined> | undefined,
     canonical,
   );
+  if (fallbackAgent === 'cursor') {
+    if (CURSOR_EXECUTOR_TEAM_ROLES.includes(canonical as typeof CURSOR_EXECUTOR_TEAM_ROLES[number])) {
+      return { agentType: fallbackAgent, model: '', role: canonical };
+    }
+    if (!hasExplicitRole && !hasConfigForRole && isCursorExecutorContextTask(task)) {
+      return { agentType: fallbackAgent, model: '', role: 'executor' };
+    }
+  }
   if (!hasExplicitRole && !hasConfigForRole) {
+    if (fallbackAgent === 'cursor' && !CURSOR_EXECUTOR_TEAM_ROLES.includes(canonical as typeof CURSOR_EXECUTOR_TEAM_ROLES[number])) {
+      throw new Error(
+        `Cursor workers are executor-style only; inferred role "${canonical}" for task "${task.subject}" must run on a native Claude/OMC reviewer agent or another supported CLI worker.`,
+      );
+    }
     return { agentType: fallbackAgent, model: '', role: canonical };
   }
 
